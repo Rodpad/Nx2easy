@@ -1,0 +1,22 @@
+# Sorties et environnements
+build/
+out/
+deps/
+games/
+.venv/
+__pycache__/
+*.zip
+nx2-easy.json
+# Jamais de jeux ni de clés
+*.keys
+*.nup
+*.nsp
+*.xci
+*.nca
+*.nro
+*.romfs
+romfs.bin*
+/exefs/
+/romfs/
+/switch/
+/nx2-relink/
