@@ -2,11 +2,12 @@
 
   python tools/install.py <name> --sd <drive or folder>     the card in this computer (I:, /media/card)
   python tools/install.py <name> --ftp <host[:port]>        or over the network, to an FTP server on the console (port 5000)
+  python tools/install.py <name> --sw2t <host[:port]>       or to SW2Transfer open on the console (port 6967; faster than FTP)
       --target switch | switch2    which NRO: out/<name>.nro (default) or out/<name>-switch2.nro
       --sd-format fat32 | exfat | auto
                                    fat32: a RomFS of 4 GB or more goes in 2 GB parts (<name>.romfs.00, .01, ...), which the port
                                    reads as one; exfat: always one file. auto (default): asked of the drive with --sd, and fat32
-                                   with --ftp, where it can't be asked (parts are read from either kind of card).
+                                   with --ftp or --sw2t, where it can't be asked (parts are read from either kind of card).
       --from <folder>              where tools/nsp.py left the game: build/<name>_nsp by default
       --nro-only                   the NRO only: the game's files are on the card already (after building a port again).
                                    --no-romfs is the same
@@ -30,7 +31,8 @@ A port installed by an earlier version of this tool had its files in /nx2/ and i
 of it in /switch/<tool>/<name>/ (0.1.0 and 0.1.1): its saved data, its RomFS and the rest are moved to the new folder (not copied
 again), and the old program is removed.
 A RomFS left there in the other form (one file where parts are being written, or the reverse) is removed: the port would read it
-instead. Every file is read back and compared after it is written (--sd), or its size and three samples of it are (--ftp).
+instead. Every file is read back and compared after it is written (--sd), or its size and three samples of it are (--ftp,
+--sw2t).
 """
 import ctypes
 import ftplib
@@ -213,7 +215,7 @@ def main():
     args = sys.argv[1:]
     target = option(args, '--target', 'switch')
     fmt = option(args, '--sd-format', 'auto').lower()
-    sd, ftp, ttx = option(args, '--sd'), option(args, '--ftp'), option(args, '--ttx')
+    sd, ftp, ttx, sw2t = option(args, '--sd'), option(args, '--ftp'), option(args, '--ttx'), option(args, '--sw2t')
     src_dir = option(args, '--from')
     no_romfs = '--no-romfs' in args or '--nro-only' in args
     for a in ('--no-romfs', '--nro-only'):
@@ -225,7 +227,7 @@ def main():
     long_log = '--long-log' in args
     if long_log:
         args.remove('--long-log')
-    if len(args) != 1 or bool(sd) == bool(ftp) or target not in ('switch', 'switch2') or fmt not in ('fat32', 'exfat', 'auto'):
+    if len(args) != 1 or [bool(sd), bool(ftp), bool(sw2t)].count(True) != 1 or target not in ('switch', 'switch2') or fmt not in ('fat32', 'exfat', 'auto'):
         sys.exit(__doc__)
     name = args[0]
     src_dir = src_dir or f'{ROOT}/build/{name}_nsp'
@@ -236,7 +238,11 @@ def main():
     nro = f'{ROOT}/out/{name}{"-switch2" if target == "switch2" else ""}.nro'
     if not os.path.isfile(nro):
         sys.exit(f'{nro} isn\'t there: build it first (tools/build.py).')
-    card = Card(sd) if sd else Ftp(ftp)
+    if sw2t:
+        from sw2t import Sw2t
+        card = Sw2t(sw2t)
+    else:
+        card = Card(sd) if sd else Ftp(ftp)
     if fmt == 'auto':
         found = drive_format(sd) if sd else None
         fmt = 'exfat' if found and found.lower() == 'exfat' else 'fat32'
@@ -335,7 +341,7 @@ def main():
             if (other == base or re.fullmatch(re.escape(base) + r'\.\d\d', other)) and other not in mine:
                 card.remove(f'{home}/{other}')
                 print(f'  {home}/{other}: removed (the image is written in another form now)')
-        to = f'ttx://{ttx}{home}/{base}' if ttx else f'ftp://{ftp}{home}/{base}' if ftp else card.root + home.lstrip('/') + '/' + base
+        to = f'ttx://{ttx}{home}/{base}' if ttx else f'sw2t://{sw2t}{home}/{base}' if sw2t else f'ftp://{ftp}{home}/{base}' if ftp else card.root + home.lstrip('/') + '/' + base
         if ttx:
             print('  (through Toronja Transfer: it must be open on the console)')
         wrong += not container.send_image(image, to, parts=in_parts)

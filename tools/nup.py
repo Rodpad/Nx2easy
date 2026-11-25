@@ -278,7 +278,11 @@ LIMIT = (4 << 30) - 1
 
 def send(stream, size, to, tell):
     """A stream's bytes to a file here, to a console's FTP server (ftp://host:port/path) or to Toronja Transfer open on the console
-    (ttx://host/path; its README has the protocol, port 28302). True if what arrived is what was sent."""
+    (ttx://host/path; its README has the protocol, port 28302) or to SW2Transfer open on it (sw2t://host/path: tools/sw2t.py). True if
+    what arrived is what was sent."""
+    if to.startswith('sw2t://'):
+        from sw2t import send_to
+        return send_to(stream, size, to, tell)
     if to.startswith('ttx://'):
         import socket
         import zlib
