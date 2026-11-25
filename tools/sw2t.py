@@ -17,7 +17,7 @@ import time
 import urllib.parse
 
 PORT = 6967
-CONNECTIONS = 8       # (SW2Transfer's own client's: the fastest in its tests)
+CONNECTIONS = 4       # (near the speed of 8 in SW2Transfer's tests, and leaves its background plugin room for others)
 CHUNK = 2 << 20
 SAMPLE = 1 << 20
 
@@ -166,6 +166,7 @@ class Sw2t:
             while True:
                 job = work.get()
                 if job is None:
+                    self.drop()  # (closed now, not whenever the thread is collected: the console holds a slot for each)
                     return
                 at, data = job
                 if failed:
@@ -224,9 +225,14 @@ class Sw2t:
         return True
 
 
+_clients = {}
+
+
 def send_to(stream, size, to, tell):
-    """For tools/nup.py: sw2t://host[:port]/path."""
+    """For tools/nup.py: sw2t://host[:port]/path. One client per console for all of an image's parts (one sign-in)."""
     host, path = to[len('sw2t://'):].split('/', 1)
-    ok = Sw2t(host).send(stream, size, '/' + path, tell)
+    if host not in _clients:
+        _clients[host] = Sw2t(host)
+    ok = _clients[host].send(stream, size, '/' + path, tell)
     print(f'  {to}: {size} bytes; ' + ('the size and samples read back match' if ok else 'DID NOT arrive right'), flush=True)
     return ok
