@@ -353,8 +353,12 @@ def send_image(image, to, parts=False):
     split = parts and image.size > LIMIT
     print(f'{len(image.order)} files, an image of {image.size >> 20} MB, to {to}' + (f' in {-(-image.size // PART)} parts' if split else ''), flush=True)
     start, said = time.time(), [0]
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from progress import progress
+    shown = '/' + to.split('://', 1)[1].split('/', 1)[1] if '://' in to else to  # (where it goes on the card, for the window)
 
     def tell(_=None):
+        progress('copy', f"{shown} (the game's files)", image.sent, image.size)  # (all of the image, across its parts)
         if image.sent - said[0] >= 256 << 20:
             said[0] = image.sent
             print(f'  {image.sent >> 20} of {image.size >> 20} MB, {(image.sent >> 20) / max(time.time() - start, 1):.1f} MB/s', flush=True)
